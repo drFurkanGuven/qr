@@ -1,0 +1,80 @@
+version: "3.8"
+
+services:
+  # -----------------------------------------------------------
+  # PostgreSQL Database Service (Internal Network Only)
+  # -----------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    container_name: qr_automation_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-qr_automation}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-qr_automation}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - qr_internal_network
+
+  # -----------------------------------------------------------
+  # FastAPI Backend Service (Internal Network Only)
+  # -----------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: qr_automation_backend
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DEBUG: ${DEBUG:-False}
+      POSTGRES_SERVER: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-qr_automation}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-qr_automation}
+      BACKEND_CORS_ORIGINS: '["*"]'
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - qr_internal_network
+
+  # -----------------------------------------------------------
+  # Next.js Frontend Service (Exposed to Nginx on Port 8001)
+  # -----------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: /api/v1
+    container_name: qr_automation_frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      INTERNAL_BACKEND_URL: http://backend:8000
+    ports:
+      # Nginx proxy_pass http://127.0.0.1:8001; ile tam uyumlu
+      - "127.0.0.1:${APP_PORT:-8001}:3000"
+    depends_on:
+      - backend
+    networks:
+      - qr_internal_network
+
+volumes:
+  postgres_data:
+    name: qr_automation_postgres_data
+
+networks:
+  qr_internal_network:
+    name: qr_internal_network
+    driver: bridge
