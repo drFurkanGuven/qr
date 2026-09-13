@@ -64,9 +64,46 @@ export default function RunnerPage() {
     loadTemplates();
   }, []);
 
-  const handleScanSuccess = (decodedText: string) => {
-    setInputValue(decodedText);
-    setInputType("qr_camera");
+  const [autoSendOnScan, setAutoSendOnScan] = useState(true);
+
+  const playChime = (isSuccess: boolean) => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      if (isSuccess) {
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+        osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1);
+      } else {
+        osc.frequency.setValueAtTime(300, ctx.currentTime);
+        osc.frequency.setValueAtTime(200, ctx.currentTime + 0.15);
+      }
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    } catch {
+      // ignore
+    }
+  };
+
+  const getResponseSnippet = (bodyStr?: string | null): string | null => {
+    if (!bodyStr) return null;
+    try {
+      const parsed = JSON.parse(bodyStr);
+      if (parsed.message) return String(parsed.message);
+      if (parsed.detail) return String(parsed.detail);
+      if (parsed.error) return String(parsed.error);
+      if (parsed.status) return `Durum: ${parsed.status}`;
+      return JSON.stringify(parsed);
+    } catch {
+      return bodyStr.length > 50 ? `${bodyStr.substring(0, 50)}...` : bodyStr;
+    }
   };
 
   const handleSelectAll = () => {
@@ -99,8 +136,14 @@ export default function RunnerPage() {
     setCustomVars((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleRunBatch = async () => {
-    if (!inputValue.trim()) {
+  const triggerBatch = async (
+    targetValue?: string,
+    targetType?: "qr_camera" | "manual_text"
+  ) => {
+    const val = (targetValue !== undefined ? targetValue : inputValue).trim();
+    const typ = targetType || inputType;
+
+    if (!val) {
       setErrorBanner("Lütfen bir QR kodu okutun veya metin girdisi yazın.");
       return;
     }
@@ -123,19 +166,33 @@ export default function RunnerPage() {
 
     try {
       const response = await api.runBatch({
-        input_value: inputValue.trim(),
-        input_type: inputType,
+        input_value: val,
+        input_type: typ,
         execution_mode: executionMode,
         template_ids: selectedTemplateIds,
         custom_variables: variablesObj,
         delay_ms_between_requests: executionMode === "sequential" ? delayMs : 0,
       });
       setLastBatchResult(response);
+      playChime(response.successful_requests > 0);
     } catch (err: any) {
       setErrorBanner(err.response?.data?.detail || "Toplu çalıştırma sırasında bir hata oluştu.");
+      playChime(false);
     } finally {
       setIsRunning(false);
     }
+  };
+
+  const handleScanSuccess = (decodedText: string) => {
+    setInputValue(decodedText);
+    setInputType("qr_camera");
+    if (autoSendOnScan) {
+      triggerBatch(decodedText, "qr_camera");
+    }
+  };
+
+  const handleRunBatch = () => {
+    triggerBatch();
   };
 
   const handleExportJson = () => {
@@ -161,7 +218,7 @@ export default function RunnerPage() {
             <span>Toplu İstek İşleyici & QR Girişi</span>
           </h1>
           <p className="text-xs sm:text-sm text-zinc-500 mt-1">
-            QR / Barkod okutun veya metin girin; seçili şablonlar ile dinamik istekleri anında tetikleyin.
+            QR okutulunca aynı qr_token, seçili tüm lab isteklerine (farklı cihaz UUID / User-Agent / Bearer) gider.
           </p>
         </div>
       </div>
@@ -181,7 +238,7 @@ export default function RunnerPage() {
           <div className="bg-white dark:bg-zinc-900 p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
-                Girdi Verisi (QR / String) *
+                Girdi (aynı qr_token tüm isteklere) *
               </label>
               <span className="text-xs text-zinc-400 font-mono">
                 {inputType === "qr_camera" ? "Kamera Girişi" : "Manuel Giriş"}
@@ -214,6 +271,22 @@ export default function RunnerPage() {
                 <Camera className="w-4 h-4" />
                 <span className="hidden sm:inline">Kamera</span>
               </button>
+            </div>
+
+            <div className="flex items-center space-x-2 pt-1">
+              <input
+                type="checkbox"
+                id="autoSendScanToggle"
+                checked={autoSendOnScan}
+                onChange={(e) => setAutoSendOnScan(e.target.checked)}
+                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-zinc-300 dark:border-zinc-700"
+              />
+              <label
+                htmlFor="autoSendScanToggle"
+                className="text-xs text-zinc-600 dark:text-zinc-300 cursor-pointer font-medium flex items-center space-x-1"
+              >
+                <span>⚡ QR kamerada okununca otomatik tüm isteklere gönder</span>
+              </label>
             </div>
 
             {/* Advanced Custom Variables Toggle */}
@@ -501,6 +574,7 @@ export default function RunnerPage() {
                       <th className="pb-2.5">Hedef URL</th>
                       <th className="pb-2.5">Durum</th>
                       <th className="pb-2.5">Gecikme</th>
+                      <th className="pb-2.5">Yanıt / Sonuç</th>
                       <th className="pb-2.5 text-right">Eylem</th>
                     </tr>
                   </thead>
@@ -513,7 +587,7 @@ export default function RunnerPage() {
                         <td className="py-3 font-sans font-semibold text-zinc-900 dark:text-zinc-100 truncate max-w-[130px]">
                           {log.template_name}
                         </td>
-                        <td className="py-3 text-zinc-500 text-[11px] truncate max-w-[200px]">
+                        <td className="py-3 text-zinc-500 text-[11px] truncate max-w-[180px]">
                           {log.request_url}
                         </td>
                         <td className="py-3">
@@ -521,6 +595,24 @@ export default function RunnerPage() {
                         </td>
                         <td className="py-3 text-zinc-600 dark:text-zinc-300">
                           {log.response_time_ms} ms
+                        </td>
+                        <td className="py-3 max-w-[200px]">
+                          {log.error_message ? (
+                            <span className="text-rose-500 font-mono text-[11px] truncate block" title={log.error_message}>
+                              {log.error_message}
+                            </span>
+                          ) : (
+                            <span
+                              className={`text-[11px] font-mono truncate block ${
+                                log.is_success
+                                  ? "text-emerald-600 dark:text-emerald-400"
+                                  : "text-amber-600 dark:text-amber-400"
+                              }`}
+                              title={log.response_body || ""}
+                            >
+                              {getResponseSnippet(log.response_body) || (log.is_success ? "OK" : "-")}
+                            </span>
+                          )}
                         </td>
                         <td className="py-3 text-right font-sans">
                           <button

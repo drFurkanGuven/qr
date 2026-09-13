@@ -12,6 +12,32 @@ from app.schemas.batch import BatchExecutionResponse
 from app.schemas.execution import RequestLogOut
 from app.services.placeholder_engine import PlaceholderEngine
 
+HOP_BY_HOP_HEADERS = {
+    "content-length",
+    "accept-encoding",
+    "connection",
+    "keep-alive",
+    "priority",
+    "transfer-encoding",
+    "host",
+    "proxy-connection",
+}
+
+
+def sanitize_request_headers(headers: Dict[str, Any]) -> Dict[str, str]:
+    cleaned: Dict[str, str] = {}
+    for key, value in (headers or {}).items():
+        if value is None:
+            continue
+        name = str(key)
+        if name.lower() in HOP_BY_HOP_HEADERS:
+            continue
+        text = str(value).strip()
+        if not text:
+            continue
+        cleaned[name] = text
+    return cleaned
+
 
 class BatchExecutorService:
     """Handles execution of single and batch HTTP requests with logging and metric calculation."""
@@ -35,6 +61,7 @@ class BatchExecutorService:
             input_value=input_value,
             custom_vars=custom_vars,
         )
+        headers = sanitize_request_headers(headers)
 
         # 2. Prepare request content
         content = None
@@ -144,7 +171,7 @@ class BatchExecutorService:
 
         # Configure HTTPX client limits
         limits = httpx.Limits(max_keepalive_connections=20, max_connections=50)
-        async with httpx.AsyncClient(limits=limits, follow_redirects=True) as client:
+        async with httpx.AsyncClient(limits=limits, follow_redirects=True, verify=False) as client:
             if execution_mode == "sequential":
                 # Sequential execution with optional delay
                 for idx, tpl in enumerate(templates):

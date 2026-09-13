@@ -8,6 +8,7 @@ import {
   Search,
   Edit2,
   Trash2,
+  Copy,
   Play,
   CheckCircle2,
   XCircle,
@@ -59,6 +60,28 @@ export default function TemplatesPage() {
     }
   };
 
+  const handleDuplicate = async (template: RequestTemplate) => {
+    try {
+      const created = await api.createTemplate({
+        name: `${template.name} (kopya)`,
+        description: template.description || undefined,
+        method: template.method,
+        url: template.url,
+        headers: template.headers,
+        body_type: template.body_type,
+        body: template.body || '{"qr_token":"{{qr_token}}"}',
+        query_params: template.query_params || {},
+        timeout_seconds: template.timeout_seconds,
+        is_active: template.is_active,
+        group_name: template.group_name,
+        order_index: template.order_index + 1,
+      });
+      setTemplates((prev) => [...prev, created]);
+    } catch {
+      alert("İstek kopyalanırken hata oluştu.");
+    }
+  };
+
   const handleToggleActive = async (template: RequestTemplate) => {
     try {
       const updated = await api.updateTemplate(template.id, {
@@ -105,7 +128,7 @@ export default function TemplatesPage() {
             <span>İstek Şablonları</span>
           </h1>
           <p className="text-xs sm:text-sm text-zinc-500 mt-1">
-            Dış API uç noktalarına gönderilecek HTTP isteklerini, yer tutucuları ve başlıkları yönetin.
+            Her kart bir lab cihazı/isteği. 10 cihaz için 10 kayıt açın; QR okutulunca aynı token hepsine gider.
           </p>
         </div>
 
@@ -122,7 +145,7 @@ export default function TemplatesPage() {
             className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow transition flex items-center space-x-2"
           >
             <Plus className="w-4 h-4" />
-            <span>Yeni Şablon Ekle</span>
+            <span>Yeni istek ekle</span>
           </Link>
         </div>
       </div>
@@ -275,6 +298,13 @@ export default function TemplatesPage() {
                 </button>
 
                 <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handleDuplicate(tpl)}
+                    className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 transition"
+                    title="Bu isteği kopyala (yeni cihaz)"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
                   <Link
                     href={`/templates/edit/${tpl.id}`}
                     className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 transition"
@@ -307,7 +337,7 @@ export default function TemplatesPage() {
 
             <div>
               <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                Giriş Değeri ({`{{qr_data}}`} yerine geçecek):
+                qr_token (taranan QR):
               </label>
               <input
                 type="text"

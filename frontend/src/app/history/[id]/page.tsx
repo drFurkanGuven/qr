@@ -203,9 +203,27 @@ export default function HistoryDetailPage() {
                           {log.error_message}
                         </span>
                       ) : log.is_success ? (
-                        <span className="text-emerald-600 text-[11px] font-medium">Başarılı</span>
+                        <span className="text-emerald-600 text-[11px] font-medium truncate block max-w-[220px]" title={log.response_body || ""}>
+                          {(() => {
+                            try {
+                              const p = JSON.parse(log.response_body || "");
+                              return p.message || p.detail || "Başarılı";
+                            } catch {
+                              return "Başarılı";
+                            }
+                          })()}
+                        </span>
                       ) : (
-                        <span className="text-amber-600 text-[11px] font-medium">Başarısız Yanıt</span>
+                        <span className="text-amber-600 text-[11px] font-medium truncate block max-w-[220px]" title={log.response_body || ""}>
+                          {(() => {
+                            try {
+                              const p = JSON.parse(log.response_body || "");
+                              return p.message || p.detail || p.error || "Başarısız Yanıt";
+                            } catch {
+                              return "Başarısız Yanıt";
+                            }
+                          })()}
+                        </span>
                       )}
                     </td>
                     <td className="py-3.5 px-4 text-right font-sans">

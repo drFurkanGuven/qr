@@ -175,7 +175,7 @@ async def test_single_template(
             detail=f"Template with ID {template_id} not found",
         )
 
-    async with httpx.AsyncClient(follow_redirects=True) as client:
+    async with httpx.AsyncClient(follow_redirects=True, verify=False) as client:
         log = await BatchExecutorService.execute_single_request(
             client=client,
             template=template,

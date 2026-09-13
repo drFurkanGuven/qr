@@ -58,6 +58,22 @@ class TestPlaceholderEngine(unittest.TestCase):
         self.assertEqual(res_headers["Authorization"], "Bearer token_xyz")
         self.assertIn("QR_42", res_body)
         self.assertEqual(res_params["device"], "scanner-1")
+        parsed_body = json.loads(res_body)
+        self.assertEqual(parsed_body["qr_token"], "QR_42")
+        self.assertEqual(parsed_body["scanned"], "QR_42")
+
+    def test_qr_token_alias_and_empty_body(self):
+        resolved = PlaceholderEngine.resolve_text('{"qr_token":"{{qr_token}}"}', "LAB_TOKEN_1")
+        self.assertEqual(json.loads(resolved)["qr_token"], "LAB_TOKEN_1")
+
+        injected = PlaceholderEngine.inject_qr_token_into_body(None, "LAB_TOKEN_2")
+        self.assertEqual(json.loads(injected)["qr_token"], "LAB_TOKEN_2")
+
+        merged = PlaceholderEngine.inject_qr_token_into_body(
+            '{"event":"verify"}', "LAB_TOKEN_3"
+        )
+        self.assertEqual(json.loads(merged)["event"], "verify")
+        self.assertEqual(json.loads(merged)["qr_token"], "LAB_TOKEN_3")
 
 
 if __name__ == "__main__":

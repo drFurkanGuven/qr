@@ -18,6 +18,7 @@ class PlaceholderEngine:
         now = datetime.now(timezone.utc)
         return {
             "qr_data": input_value,
+            "qr_token": input_value,
             "input": input_value,
             "timestamp": str(int(time.time())),
             "iso_timestamp": now.isoformat(),
@@ -25,6 +26,21 @@ class PlaceholderEngine:
             "time": now.strftime("%H:%M:%S"),
             "uuid": str(uuid.uuid4()),
         }
+
+    @classmethod
+    def inject_qr_token_into_body(cls, body: Optional[str], input_value: str) -> str:
+        """Ensure JSON bodies carry qr_token from the scanned value."""
+        token = input_value
+        if not body or not str(body).strip():
+            return json.dumps({"qr_token": token}, ensure_ascii=False)
+        try:
+            parsed = json.loads(body)
+        except Exception:
+            return body
+        if isinstance(parsed, dict):
+            parsed["qr_token"] = token
+            return json.dumps(parsed, ensure_ascii=False)
+        return body
 
     @classmethod
     def resolve_text(
@@ -101,5 +117,6 @@ class PlaceholderEngine:
         resolved_headers = cls.resolve_dict(headers, input_value, custom_vars)
         resolved_query_params = cls.resolve_dict(query_params, input_value, custom_vars)
         resolved_body = cls.resolve_text(body, input_value, custom_vars)
+        resolved_body = cls.inject_qr_token_into_body(resolved_body, input_value)
 
         return resolved_url, resolved_headers, resolved_body, resolved_query_params
