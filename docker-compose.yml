@@ -55,6 +55,7 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: /api/v1
+        INTERNAL_BACKEND_URL: http://backend:8000
     container_name: qr_automation_frontend
     restart: unless-stopped
     environment:
