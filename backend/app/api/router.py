@@ -1,8 +1,9 @@
 from fastapi import APIRouter
-from app.api.endpoints import batch, executions, stats, templates
+from app.api.endpoints import auth, batch, executions, stats, templates
 
 api_router = APIRouter()
 
+api_router.include_router(auth.router, prefix="/auth", tags=["Admin Auth"])
 api_router.include_router(templates.router, prefix="/templates", tags=["Templates"])
 api_router.include_router(batch.router, prefix="/batch", tags=["Batch Engine"])
 api_router.include_router(executions.router, prefix="/executions", tags=["Executions & Logs"])

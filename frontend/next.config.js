@@ -2,6 +2,15 @@
 const nextConfig = {
   output: "standalone",
   reactStrictMode: false,
+  async redirects() {
+    return [
+      {
+        source: "/",
+        destination: "/runner",
+        permanent: false,
+      },
+    ];
+  },
   async rewrites() {
     const backendUrl = process.env.INTERNAL_BACKEND_URL || "http://127.0.0.1:8000";
     return [

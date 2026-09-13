@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   FileCode2,
   Plus,
@@ -21,8 +22,10 @@ import {
 import { api } from "@/lib/api";
 import { RequestLog, RequestTemplate } from "@/lib/types";
 import { ResponseInspectorModal } from "@/components/ResponseInspectorModal";
+import { AdminGate } from "@/components/AdminGate";
 
 export default function TemplatesPage() {
+  const router = useRouter();
   const [templates, setTemplates] = useState<RequestTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -61,25 +64,9 @@ export default function TemplatesPage() {
   };
 
   const handleDuplicate = async (template: RequestTemplate) => {
-    try {
-      const created = await api.createTemplate({
-        name: `${template.name} (kopya)`,
-        description: template.description || undefined,
-        method: template.method,
-        url: template.url,
-        headers: template.headers,
-        body_type: template.body_type,
-        body: template.body || '{"qr_token":"{{qr_token}}"}',
-        query_params: template.query_params || {},
-        timeout_seconds: template.timeout_seconds,
-        is_active: template.is_active,
-        group_name: template.group_name,
-        order_index: template.order_index + 1,
-      });
-      setTemplates((prev) => [...prev, created]);
-    } catch {
-      alert("İstek kopyalanırken hata oluştu.");
-    }
+    // Klonlama: kaynak profilin alanlarıyla dolu yeni profil formunu aç.
+    // Admin Authorization, X-Device-Uuid, User-Agent vb. değerleri değiştirip "Kaydet" deyince yeni profil oluşur.
+    router.push(`/templates/new?clone=${template.id}`);
   };
 
   const handleToggleActive = async (template: RequestTemplate) => {
@@ -119,7 +106,8 @@ export default function TemplatesPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <AdminGate>
+      <div className="space-y-6">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -377,6 +365,7 @@ export default function TemplatesPage() {
           onClose={() => setQuickTestResult(null)}
         />
       )}
-    </div>
+      </div>
+    </AdminGate>
   );
 }

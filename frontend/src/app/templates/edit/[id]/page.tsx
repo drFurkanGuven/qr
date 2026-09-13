@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { RequestTemplate } from "@/lib/types";
 import { TemplateForm } from "@/components/TemplateForm";
+import { AdminGate } from "@/components/AdminGate";
 
 export default function EditTemplatePage() {
   const params = useParams();
@@ -30,17 +31,17 @@ export default function EditTemplatePage() {
     load();
   }, [id]);
 
-  if (loading) {
-    return <div className="py-20 text-center text-sm text-zinc-400">Şablon yükleniyor...</div>;
-  }
-
-  if (error || !template) {
-    return (
-      <div className="p-8 text-center bg-white dark:bg-zinc-900 rounded-xl border border-rose-200 text-rose-600 text-sm">
-        {error || "Şablon bulunamadı"}
-      </div>
-    );
-  }
-
-  return <TemplateForm initialData={template} isEdit={true} />;
+  return (
+    <AdminGate>
+      {loading ? (
+        <div className="py-20 text-center text-sm text-zinc-400">Şablon yükleniyor...</div>
+      ) : error || !template ? (
+        <div className="p-8 text-center bg-white dark:bg-zinc-900 rounded-xl border border-rose-200 text-rose-600 text-sm">
+          {error || "Şablon bulunamadı"}
+        </div>
+      ) : (
+        <TemplateForm initialData={template} isEdit={true} />
+      )}
+    </AdminGate>
+  );
 }

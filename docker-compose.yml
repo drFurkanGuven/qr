@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # -----------------------------------------------------------
   # PostgreSQL Database Service (Internal Network Only)
@@ -40,6 +38,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-qr_automation}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-qr_automation}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
       BACKEND_CORS_ORIGINS: '["*"]'
     depends_on:
       db:

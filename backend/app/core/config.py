@@ -9,6 +9,11 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
 
+    # Admin auth (profil yönetimi için tek şifre)
+    ADMIN_PASSWORD: str = "admin123"
+    ADMIN_TOKEN_TTL_SECONDS: int = 24 * 60 * 60
+    ADMIN_TOKEN_HEADER: str = "X-Admin-Token"
+
     # Database
     POSTGRES_SERVER: str = "localhost"
     POSTGRES_PORT: int = 5432

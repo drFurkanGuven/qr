@@ -44,6 +44,12 @@ Genel amaçlı, modern web arayüzüne sahip, QR/Barkod tarayıcılı veya metin
 
 ## ⚡ Temel Özellikler
 
+0. **Yönetici (Admin) Korumalı Profil Yönetimi**:
+   - Profiller (istek şablonları) yalnızca yönetici ekleyebilir, düzenleyebilir, silebilir ve klonlayabilir.
+   - `ADMIN_PASSWORD` ortam değişkeni ile tek yönetici şifresi (varsayılan: `admin123` — değiştirmeyi unutmayın).
+   - Normal ziyaretçi; site açılışında `Toplu Çalıştırıcı` sayfasına yönlenir ve yöneticinin eklediği profillere anında istek gönderebilir.
+   - **Profil Klonlama**: Her karttaki "Kopyala" butonu, kaynak profilin Authorization token, X-Device-Uuid, User-Agent gibi tüm alanları dolu **yeni profil formunu** açar. Yönetici bu değerleri değiştirip "Kaydet" deyince yeni profil kayıt altına alınır.
+
 1. **Şablon Yönetimi (Template Management)**:
    - Farklı HTTP istek şablonları (POST, GET, PUT, PATCH, DELETE), özel header'lar, URL query parametreleri ve gövde (body) tanımlama.
    - Şablonları gruplama (örn: `bilet_kontrol`, `odeme_sorgu`, `stok_giris`) ve sıralama (`order_index`).
@@ -197,6 +203,7 @@ nano .env
 ```
 `.env` dosyasındaki ayarları sunucunuza göre düzenleyin:
 - `POSTGRES_PASSWORD`: Güçlü ve güvenli bir şifre belirleyin.
+- `ADMIN_PASSWORD`: Yönetici (profil yönetimi) parolasını **mutlaka** `admin123` dışında bir değerle değiştirin.
 - `NEXT_PUBLIC_API_URL`: Sunucunuzun IP adresi veya alan adı (Örn: `http://192.168.1.100:8000/api/v1` veya `https://api.alanadiniz.com/api/v1`).
 
 ### Adım 5: Servisleri Başlatma
