@@ -188,7 +188,7 @@ export const ScannerScreen: React.FC = () => {
         <View style={styles.cameraBox}>
           {cameraActive ? (
             <CameraView
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
               facing="back"
               enableTorch={torch}
               zoom={zoom}
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
   },

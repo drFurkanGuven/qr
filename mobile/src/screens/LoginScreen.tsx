@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   webLoading: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "#ffffff",
     alignItems: "center",
     justifyContent: "center",
