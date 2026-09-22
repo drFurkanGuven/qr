@@ -38,11 +38,14 @@ async def verify_single_student(
 
         # 2. Fırat Üniversitesi Resmi Yoklama API'sine İlet
         headers = {
+            "Host": "qr.firat.edu.tr",
             "Accept": "application/json",
             "Content-Type": "application/json",
             "Authorization": f"Bearer {token}",
-            "X-Device-UUID": profile.device_uuid,
-            "User-Agent": "FiratYoklama/2.0 (Mobile; iOS 17.5)",
+            "X-Device-Uuid": profile.device_uuid,
+            "User-Agent": "FiratMobil/2 CFNetwork/3896.100.1.2.1 Darwin/27.0.0",
+            "Accept-Language": "tr-TR,tr;q=0.9",
+            "Connection": "keep-alive",
         }
         body = {
             "qr_token": qr_token.strip(),

@@ -15,6 +15,33 @@ class CasAuthenticator:
     """
 
     @classmethod
+    async def verify_token_alive(cls, token: str, device_uuid: str) -> Tuple[bool, Optional[str]]:
+        """
+        Token'ın Fırat API (/api/user) nezdinde geçerli olup olmadığını test eder.
+        Döner: (is_alive, user_display_name_or_error)
+        """
+        if not token or not token.strip():
+            return False, "Token boş"
+        try:
+            headers = {
+                "Host": "qr.firat.edu.tr",
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token.strip()}",
+                "X-Device-Uuid": device_uuid,
+                "User-Agent": "FiratMobil/2 CFNetwork/3896.100.1.2.1 Darwin/27.0.0",
+                "Accept-Language": "tr-TR,tr;q=0.9",
+            }
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                res = await client.get(f"{settings.FIRAT_API_BASE_URL}/user", headers=headers)
+                if res.status_code == 200:
+                    data = res.json()
+                    name = data.get("name") or data.get("full_name") or data.get("username") or "Aktif Kullanıcı"
+                    return True, name
+                return False, f"HTTP {res.status_code}"
+        except Exception as e:
+            return False, str(e)
+
+    @classmethod
     async def get_valid_token(
         cls,
         profile: StudentProfile,
@@ -22,23 +49,38 @@ class CasAuthenticator:
     ) -> Tuple[Optional[str], Optional[str]]:
         """
         Öğrencinin geçerli Bearer token'ını döner.
-        Önbellekte geçerli token varsa doğrudan onu kullanır; yoksa CAS login yapar.
-        Döner: (access_token, error_message)
+        1. Önbellekteki veya manuel girilen token geçerliyse doğrudan kullanır (CAS'ı atlar).
+        2. Gerekirse /api/user ile token'ın canlılığını teyit eder.
+        3. Token yoksa veya geçersizse Fırat CAS oturumu açar.
         """
         now = datetime.now(timezone.utc)
 
-        # 1. Önbellekteki token hâlâ geçerli mi?
-        if profile.cached_token and profile.token_expires_at:
-            if profile.token_expires_at > now + timedelta(seconds=60):
-                return profile.cached_token, None
+        # 1. Önbellekteki veya manuel girilmiş token var mı?
+        if profile.cached_token and profile.cached_token.strip():
+            clean_token = profile.cached_token.strip()
+            # Süresi hâlâ devam ediyorsa direkt kullan
+            if profile.token_expires_at and profile.token_expires_at > now + timedelta(seconds=60):
+                return clean_token, None
+
+            # Süresi belirsizse veya bitmişse, canlılığını /api/user ile test et
+            alive, info = await cls.verify_token_alive(clean_token, profile.device_uuid)
+            if alive:
+                profile.token_expires_at = now + timedelta(days=30)
+                await db.flush()
+                return clean_token, None
+            elif not profile.password:
+                return None, f"Kayıtlı Bearer Token geçersiz veya süresi dolmuş ({info}). Lütfen yeni token girin."
 
         # 2. Test / Geliştirme Ortamı ise yerel simüle token üret
-        if profile.password.startswith("test_") or settings.ENVIRONMENT == "development" and not settings.UPSTREAM_MODE:
+        if profile.password and profile.password.startswith("test_") or (settings.ENVIRONMENT == "development" and not settings.UPSTREAM_MODE):
             mock_token = f"simulated_token_{profile.student_no}_{int(time.time())}"
             profile.cached_token = mock_token
             profile.token_expires_at = now + timedelta(hours=12)
             await db.flush()
             return mock_token, None
+
+        if not profile.password:
+            return None, "Öğrenci profili için ne geçerli bir Bearer token ne de CAS parolası bulunuyor."
 
         # 3. Gerçek Fırat CAS Login Akışı
         try:
@@ -93,8 +135,12 @@ class CasAuthenticator:
                         "device_uuid": profile.device_uuid,
                     },
                     headers={
+                        "Host": "qr.firat.edu.tr",
                         "Accept": "application/json",
                         "Content-Type": "application/json",
+                        "X-Device-Uuid": profile.device_uuid,
+                        "User-Agent": "FiratMobil/2 CFNetwork/3896.100.1.2.1 Darwin/27.0.0",
+                        "Accept-Language": "tr-TR,tr;q=0.9",
                     }
                 )
 

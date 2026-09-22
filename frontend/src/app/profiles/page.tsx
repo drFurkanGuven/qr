@@ -64,6 +64,7 @@ export default function ProfilesPage() {
       full_name: "",
       group_tag: "tubitak_ekip",
       is_active: true,
+      cached_token: "",
     });
     setErrorMsg(null);
     setModalOpen(true);
@@ -78,6 +79,7 @@ export default function ProfilesPage() {
       full_name: p.full_name,
       group_tag: p.group_tag,
       is_active: p.is_active,
+      cached_token: p.cached_token || "",
     });
     setErrorMsg(null);
     setModalOpen(true);
@@ -225,11 +227,18 @@ export default function ProfilesPage() {
                       </span>
                     </td>
                     <td className="py-3 px-3">
-                      {p.is_active ? (
-                        <span className="text-emerald-600 font-sans font-semibold">● Aktif</span>
-                      ) : (
-                        <span className="text-zinc-400 font-sans">○ Pasif</span>
-                      )}
+                      <div className="flex flex-col gap-0.5">
+                        {p.is_active ? (
+                          <span className="text-emerald-600 font-sans font-semibold">● Aktif</span>
+                        ) : (
+                          <span className="text-zinc-400 font-sans">○ Pasif</span>
+                        )}
+                        {p.has_valid_token && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded font-sans font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 w-fit">
+                            Token Hazır
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-3 text-right space-x-1.5 font-sans">
                       <button
@@ -302,16 +311,35 @@ export default function ProfilesPage() {
 
               <div>
                 <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                  Fırat CAS Parolası {editingId && "(Değiştirmek istemiyorsanız boş bırakın)"}
+                  Fırat CAS Parolası {editingId ? "(Değiştirmek istemiyorsanız boş bırakın)" : "(Token girildiğinde zorunlu değildir)"}
                 </label>
                 <input
                   type="password"
-                  required={!editingId}
+                  required={!editingId && !formData.cached_token}
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   placeholder={editingId ? "••••••••" : "CAS Giriş Parolası"}
                   className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 font-mono text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
                 />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-zinc-700 dark:text-zinc-300">
+                    Doğrudan Bearer Token (Opsiyonel)
+                  </label>
+                  <span className="text-[10px] text-emerald-600 font-medium">CAS kısıtlamalarını atlar</span>
+                </div>
+                <input
+                  type="text"
+                  value={formData.cached_token || ""}
+                  onChange={(e) => setFormData({ ...formData, cached_token: e.target.value })}
+                  placeholder="Örn: 437|PSv45Rwff7JYbi7ekv0Q9SNbAreq9uFSRuHm1PBIf700a002"
+                  className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 font-mono text-[11px] focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                />
+                <p className="text-[10px] text-zinc-500 mt-1">
+                  Burp veya mobilden yakalanan aktif token varsa girin. Sistem CAS girişini atlayıp doğrudan bu token ile yoklama onaylar.
+                </p>
               </div>
 
               <div>

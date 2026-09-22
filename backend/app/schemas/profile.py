@@ -5,11 +5,12 @@ from datetime import datetime
 
 class StudentProfileCreate(BaseModel):
     student_no: str
-    password: str
+    password: Optional[str] = ""
     device_uuid: str
     full_name: str
     group_tag: str = "tubitak_ekip"
     is_active: bool = True
+    cached_token: Optional[str] = None
 
 
 class StudentProfileUpdate(BaseModel):
@@ -19,6 +20,7 @@ class StudentProfileUpdate(BaseModel):
     full_name: Optional[str] = None
     group_tag: Optional[str] = None
     is_active: Optional[bool] = None
+    cached_token: Optional[str] = None
 
 
 class StudentProfileResponse(BaseModel):

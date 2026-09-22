@@ -1,5 +1,5 @@
 from typing import List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -62,11 +62,13 @@ async def create_profile(
 
     profile = StudentProfile(
         student_no=payload.student_no.strip(),
-        password=payload.password.strip(),
+        password=payload.password.strip() if payload.password else "",
         device_uuid=payload.device_uuid.strip(),
         full_name=payload.full_name.strip(),
         group_tag=payload.group_tag.strip() or "tubitak_ekip",
         is_active=payload.is_active,
+        cached_token=payload.cached_token.strip() if payload.cached_token and payload.cached_token.strip() else None,
+        token_expires_at=datetime.now(timezone.utc) + timedelta(days=30) if payload.cached_token and payload.cached_token.strip() else None,
     )
     db.add(profile)
     await db.commit()
@@ -79,7 +81,7 @@ async def create_profile(
         device_uuid=profile.device_uuid,
         group_tag=profile.group_tag,
         is_active=profile.is_active,
-        has_valid_token=False,
+        has_valid_token=bool(profile.cached_token),
         created_at=profile.created_at,
         updated_at=profile.updated_at,
     )
@@ -101,7 +103,7 @@ async def update_profile(
         profile.student_no = payload.student_no.strip()
     if payload.password is not None and payload.password.strip():
         profile.password = payload.password.strip()
-        profile.cached_token = None  # Parola değiştiyse token sıfırlanır
+        profile.cached_token = None  # Parola değiştiyse eski token sıfırlanır
     if payload.device_uuid is not None:
         profile.device_uuid = payload.device_uuid.strip()
     if payload.full_name is not None:
@@ -110,6 +112,10 @@ async def update_profile(
         profile.group_tag = payload.group_tag.strip()
     if payload.is_active is not None:
         profile.is_active = payload.is_active
+    if payload.cached_token is not None:
+        token_val = payload.cached_token.strip()
+        profile.cached_token = token_val if token_val else None
+        profile.token_expires_at = datetime.now(timezone.utc) + timedelta(days=30) if token_val else None
 
     await db.commit()
     await db.refresh(profile)
@@ -144,12 +150,16 @@ async def delete_profile(
     return {"success": True, "message": "Profil silindi."}
 
 
-@router.post("/{profile_id}/test-auth", summary="Öğrencinin CAS Girişini Test Et")
+@router.post("/{profile_id}/test-auth", summary="Öğrencinin Kimlik / Token Durumunu Test Et")
 async def test_student_auth(
     profile_id: str,
     db: AsyncSession = Depends(get_db),
 ):
-    """Tek bir öğrencinin şifre ve device_uuid ile CAS oturum açıp açamadığını test eder."""
+    """
+    Öğrencinin Bearer token veya CAS giriş durumunu test eder:
+    1. Eğer kayıtlı Bearer token varsa önce /api/user ile doğrudan canlılığı test edilir (CAS atlanır).
+    2. Token yoksa veya geçersizse CAS girişi denenir.
+    """
     res = await db.execute(select(StudentProfile).where(StudentProfile.id == profile_id))
     profile = res.scalars().first()
     if not profile:
@@ -161,13 +171,13 @@ async def test_student_auth(
     if not token:
         return {
             "success": False,
-            "message": f"CAS Girişi Başarısız: {err}",
+            "message": f"Doğrulama Başarısız: {err}",
             "student_no": profile.student_no,
         }
 
     return {
         "success": True,
-        "message": "Fırat CAS girişi ve Token Exchange başarıyla tamamlandı!",
+        "message": "Kimlik doğrulama ve Bearer Token hazır (Fırat API aktif)!",
         "student_no": profile.student_no,
-        "token_preview": token[:16] + "...",
+        "token_preview": token[:14] + "...",
     }

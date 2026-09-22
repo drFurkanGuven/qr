@@ -6,17 +6,19 @@ export interface StudentProfile {
   group_tag: string;
   is_active: boolean;
   has_valid_token: boolean;
+  cached_token?: string;
   created_at: string;
   updated_at: string;
 }
 
 export interface StudentProfileCreateInput {
   student_no: string;
-  password: string;
+  password?: string;
   device_uuid: string;
   full_name: string;
   group_tag?: string;
   is_active?: boolean;
+  cached_token?: string;
 }
 
 export interface StudentVerifyResult {
