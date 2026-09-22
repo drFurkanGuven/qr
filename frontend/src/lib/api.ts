@@ -1,127 +1,91 @@
 import axios from "axios";
 import {
-  AdminLoginResponse,
-  AdminVerifyResponse,
-  BatchExecutionPayload,
-  BatchExecutionResponse,
-  BatchRun,
-  DashboardStats,
-  RequestLog,
-  RequestTemplate,
-  TemplateCreateInput,
-  TemplatePreviewResponse,
+  UserMeResponse,
+  Course,
+  CourseSession,
+  RotatingQrData,
+  VerifyAttendanceResponse,
+  AttendanceShowResponse,
+  MyAttendanceRecord,
 } from "./types";
-import { getAdminToken } from "./admin";
 
-// Base API URL: In browser, uses NEXT_PUBLIC_API_URL or defaults to relative /api/v1 (routed via Next.js rewrite or direct)
 const API_BASE_URL =
   typeof window !== "undefined" && process.env.NEXT_PUBLIC_API_URL
     ? process.env.NEXT_PUBLIC_API_URL
     : "/api/v1";
 
-const apiClient = axios.create({
+export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 60000,
-});
-
-// Attach admin token to every request when present
-apiClient.interceptors.request.use((config) => {
-  const token = getAdminToken();
-  if (token) {
-    config.headers["X-Admin-Token"] = token;
-  }
-  return config;
+  withCredentials: true, // httpOnly Secure çerezlerin taşınması için zorunlu
+  timeout: 30000,
 });
 
 export const api = {
-  // Admin Auth
-  adminLogin: async (password: string): Promise<AdminLoginResponse> => {
-    const res = await apiClient.post<AdminLoginResponse>("/auth/login", { password });
+  // Kimlik Doğrulama
+  getMe: async (): Promise<UserMeResponse> => {
+    const res = await apiClient.get<UserMeResponse>("/auth/me");
     return res.data;
   },
 
-  adminVerify: async (): Promise<AdminVerifyResponse> => {
-    const res = await apiClient.get<AdminVerifyResponse>("/auth/verify");
-    return res.data;
-  },
-
-  // Stats
-  getStats: async (): Promise<DashboardStats> => {
-    const res = await apiClient.get<DashboardStats>("/stats");
-    return res.data;
-  },
-
-  // Templates
-  getTemplates: async (params?: { group?: string; is_active?: boolean }): Promise<RequestTemplate[]> => {
-    const res = await apiClient.get<RequestTemplate[]>("/templates", { params });
-    return res.data;
-  },
-
-  getTemplate: async (id: string): Promise<RequestTemplate> => {
-    const res = await apiClient.get<RequestTemplate>(`/templates/${id}`);
-    return res.data;
-  },
-
-  createTemplate: async (data: TemplateCreateInput): Promise<RequestTemplate> => {
-    const res = await apiClient.post<RequestTemplate>("/templates", data);
-    return res.data;
-  },
-
-  updateTemplate: async (id: string, data: Partial<TemplateCreateInput>): Promise<RequestTemplate> => {
-    const res = await apiClient.put<RequestTemplate>(`/templates/${id}`, data);
-    return res.data;
-  },
-
-  deleteTemplate: async (id: string): Promise<void> => {
-    await apiClient.delete(`/templates/${id}`);
-  },
-
-  testTemplate: async (
-    id: string,
-    inputValue: string,
-    customVariables?: Record<string, string>
-  ): Promise<RequestLog> => {
-    const res = await apiClient.post<RequestLog>(`/templates/${id}/test`, {
-      input_value: inputValue,
-      custom_variables: customVariables || {},
+  loginWithCasTicket: async (ticket: string) => {
+    const res = await apiClient.get(`/auth/cas/callback`, {
+      params: { ticket },
     });
     return res.data;
   },
 
-  previewTemplate: async (
-    template: any,
-    inputValue: string,
-    customVariables?: Record<string, string>
-  ): Promise<TemplatePreviewResponse> => {
-    const res = await apiClient.post<TemplatePreviewResponse>("/templates/preview", {
-      template,
-      input_value: inputValue,
-      custom_variables: customVariables || {},
+  logout: async () => {
+    const res = await apiClient.post("/auth/logout");
+    return res.data;
+  },
+
+  // Dersler
+  getCourses: async (): Promise<Course[]> => {
+    const res = await apiClient.get<Course[]>("/courses");
+    return res.data;
+  },
+
+  // Yoklama İşlemleri (Öğretim Görevlisi)
+  createSession: async (courseId: string, durationMinutes: number): Promise<CourseSession> => {
+    const res = await apiClient.post<CourseSession>("/attendance/sessions", {
+      course_id: courseId,
+      duration_minutes: durationMinutes,
     });
     return res.data;
   },
 
-  // Batch
-  runBatch: async (payload: BatchExecutionPayload): Promise<BatchExecutionResponse> => {
-    const res = await apiClient.post<BatchExecutionResponse>("/batch/run", payload);
+  getRotatingQr: async (sessionId: string): Promise<RotatingQrData> => {
+    const res = await apiClient.get<RotatingQrData>(`/attendance/sessions/${sessionId}/qr`);
     return res.data;
   },
 
-  // History & Executions
-  getExecutions: async (params?: { limit?: number; offset?: number; status?: string }): Promise<BatchRun[]> => {
-    const res = await apiClient.get<BatchRun[]>("/executions", { params });
+  closeSession: async (sessionId: string) => {
+    const res = await apiClient.post(`/attendance/sessions/${sessionId}/close`);
     return res.data;
   },
 
-  getExecutionDetail: async (id: string): Promise<BatchRun> => {
-    const res = await apiClient.get<BatchRun>(`/executions/${id}`);
+  getSessionRecords: async (sessionId: string): Promise<AttendanceShowResponse> => {
+    const res = await apiClient.get<AttendanceShowResponse>(`/attendance/sessions/${sessionId}/records`);
     return res.data;
   },
 
-  deleteExecution: async (id: string): Promise<void> => {
-    await apiClient.delete(`/executions/${id}`);
+  // Yoklama Doğrulama (Öğrenci)
+  verifyAttendance: async (
+    qrToken: string,
+    idempotencyKey?: string
+  ): Promise<VerifyAttendanceResponse> => {
+    const res = await apiClient.post<VerifyAttendanceResponse>("/attendance/verify", {
+      qr_token: qrToken,
+      idempotency_key: idempotencyKey,
+    });
+    return res.data;
+  },
+
+  getMyRecords: async (): Promise<{ success: boolean; records: MyAttendanceRecord[] }> => {
+    const res = await apiClient.get<{ success: boolean; records: MyAttendanceRecord[] }>("/attendance/my-records");
+    return res.data;
   },
 };

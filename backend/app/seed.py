@@ -1,72 +1,110 @@
-"""Initial seed script to populate sample request templates for testing."""
+"""
+Yetkili Üniversite Yoklama Sistemi - Başlangıç Test Verisi (Seed Script)
+Dersler, öğretim görevlileri ve kayıtlı öğrencileri oluşturur.
+"""
 
 import asyncio
-from app.core.database import AsyncSessionLocal, init_db
-from app.models.template import RequestTemplate
 from sqlalchemy import select
-
-
-SAMPLE_TEMPLATES = [
-    {
-        "name": "Yoklama Doğrulama (Cihaz 1)",
-        "description": "Lab yoklama sistemi POST /api/attendance/verify isteği. QR okununca aynı qr_token iletilir.",
-        "method": "POST",
-        "url": "https://httpbin.org/post",
-        "headers": {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "Authorization": "Bearer sample_token_here",
-            "X-Device-Uuid": "e3b0c442-98fc-1c14-9afb-4c8996fb9242",
-            "User-Agent": "denemeapp/2 CFNetwork/3860.600.12 Darwin/25.5.0",
-            "Accept-Language": "tr-TR,tr;q=0.9",
-        },
-        "body_type": "json",
-        "body": '{\n  "qr_token": "{{qr_token}}"\n}',
-        "query_params": {},
-        "timeout_seconds": 10.0,
-        "is_active": True,
-        "group_name": "lab_yoklama",
-        "order_index": 1,
-    },
-    {
-        "name": "Yoklama Doğrulama (Cihaz 2)",
-        "description": "Lab yoklama sistemi 2. cihaz profili. Farklı Device UUID ve Bearer Token.",
-        "method": "POST",
-        "url": "https://httpbin.org/post",
-        "headers": {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "Authorization": "Bearer sample_token_device_2",
-            "X-Device-Uuid": "d7a8fbb1-4c12-4e89-8cb3-128937402831",
-            "User-Agent": "denemeapp/2 CFNetwork/3860.600.12 Darwin/25.5.0",
-            "Accept-Language": "tr-TR,tr;q=0.9",
-        },
-        "body_type": "json",
-        "body": '{\n  "qr_token": "{{qr_token}}"\n}',
-        "query_params": {},
-        "timeout_seconds": 10.0,
-        "is_active": True,
-        "group_name": "lab_yoklama",
-        "order_index": 2,
-    },
-]
+from app.core.database import AsyncSessionLocal, init_db
+from app.models.user import User
+from app.models.course import Course, CourseEnrollment
 
 
 async def seed():
     await init_db()
     async with AsyncSessionLocal() as session:
-        # Check if templates already exist
-        res = await session.execute(select(RequestTemplate))
-        existing = res.scalars().all()
-        if existing:
-            print(f"Veritabanında halihazırda {len(existing)} şablon bulunuyor. Seed atlandı.")
-            return
+        # Hoca var mı kontrol et
+        res = await session.execute(select(User).where(User.cas_subject == "fguven"))
+        instructor = res.scalars().first()
 
-        for tpl_data in SAMPLE_TEMPLATES:
-            tpl = RequestTemplate(**tpl_data)
-            session.add(tpl)
+        if not instructor:
+            instructor = User(
+                university_student_id="1001",
+                cas_subject="fguven",
+                email="fguven@firat.edu.tr",
+                full_name="Dr. Öğr. Üyesi Furkan Güven",
+                role="instructor",
+            )
+            session.add(instructor)
+            await session.flush()
+            print("👤 Öğretim üyesi eklendi: Dr. Öğr. Üyesi Furkan Güven")
+
+        # Dersleri oluştur
+        course_res = await session.execute(select(Course).where(Course.course_code == "BLM301"))
+        course1 = course_res.scalars().first()
+        if not course1:
+            course1 = Course(
+                course_code="BLM301",
+                name="Yazılım Mühendisliği",
+                instructor_id=instructor.id,
+                academic_semester="2026-Guz",
+            )
+            session.add(course1)
+
+        course2_res = await session.execute(select(Course).where(Course.course_code == "BLM405"))
+        course2 = course2_res.scalars().first()
+        if not course2:
+            course2 = Course(
+                course_code="BLM405",
+                name="Bilgisayar Ağları ve Güvenliği",
+                instructor_id=instructor.id,
+                academic_semester="2026-Guz",
+            )
+            session.add(course2)
+
+        await session.flush()
+        print(f"📚 Dersler eklendi: {course1.course_code}, {course2.course_code}")
+
+        # Öğrencileri oluştur
+        sample_students = [
+            ("210101001", "ogr_ali", "Ali Veli", "ali@firat.edu.tr"),
+            ("210101002", "ogr_ayse", "Ayşe Yılmaz", "ayse@firat.edu.tr"),
+            ("210101003", "ogr_mehmet", "Mehmet Demir", "mehmet@firat.edu.tr"),
+            ("210101004", "ogr_zeynep", "Zeynep Kaya", "zeynep@firat.edu.tr"),
+            ("210101005", "ogr_can", "Can Öztürk", "can@firat.edu.tr"),
+        ]
+
+        student_objs = []
+        for num, subj, name, email in sample_students:
+            s_res = await session.execute(select(User).where(User.cas_subject == subj))
+            st = s_res.scalars().first()
+            if not st:
+                st = User(
+                    university_student_id=num,
+                    cas_subject=subj,
+                    email=email,
+                    full_name=name,
+                    role="student",
+                )
+                session.add(st)
+                await session.flush()
+            student_objs.append(st)
+
+        # Derse Kayıtları Ekle (CourseEnrollment)
+        # Tüm 5 öğrenci BLM301'e kayıtlı
+        for st in student_objs:
+            enr_res = await session.execute(
+                select(CourseEnrollment).where(
+                    CourseEnrollment.course_id == course1.id,
+                    CourseEnrollment.student_id == st.id,
+                )
+            )
+            if not enr_res.scalars().first():
+                session.add(CourseEnrollment(course_id=course1.id, student_id=st.id))
+
+        # Yalnızca ilk 3 öğrenci BLM405'e kayıtlı (Kayıtsız öğrenci testi için)
+        for st in student_objs[:3]:
+            enr_res = await session.execute(
+                select(CourseEnrollment).where(
+                    CourseEnrollment.course_id == course2.id,
+                    CourseEnrollment.student_id == st.id,
+                )
+            )
+            if not enr_res.scalars().first():
+                session.add(CourseEnrollment(course_id=course2.id, student_id=st.id))
+
         await session.commit()
-        print(f"✅ {len(SAMPLE_TEMPLATES)} adet örnek yoklama şablonu başarıyla eklendi.")
+        print("✅ 5 adet test öğrencisi ve ders kayıtları başarıyla oluşturuldu.")
 
 
 if __name__ == "__main__":

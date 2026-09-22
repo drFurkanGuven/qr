@@ -48,7 +48,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def init_db():
     """Create tables if they do not exist."""
     # Import models so that Base.metadata knows about them
-    from app.models import template, execution  # noqa: F401
+    import app.models  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

@@ -1,19 +1,19 @@
 services:
   # -----------------------------------------------------------
-  # PostgreSQL Database Service (Internal Network Only)
+  # PostgreSQL 16 Database Service (Internal Network Only)
   # -----------------------------------------------------------
   db:
     image: postgres:16-alpine
-    container_name: qr_automation_db
+    container_name: qr_university_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-qr_automation}
+      POSTGRES_USER: ${POSTGRES_USER:-qr_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-GuvenliPostgresSifresi123!}
+      POSTGRES_DB: ${POSTGRES_DB:-qr_university}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-qr_automation}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-qr_admin} -d ${POSTGRES_DB:-qr_university}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -27,19 +27,25 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: qr_automation_backend
+    container_name: qr_university_backend
     restart: unless-stopped
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-production}
       DEBUG: ${DEBUG:-False}
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production-min-64-characters-long-please-123456}
       POSTGRES_SERVER: db
       POSTGRES_PORT: 5432
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-qr_automation}
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-qr_automation}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
-      BACKEND_CORS_ORIGINS: '["*"]'
+      POSTGRES_USER: ${POSTGRES_USER:-qr_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-GuvenliPostgresSifresi123!}
+      POSTGRES_DB: ${POSTGRES_DB:-qr_university}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-qr_admin}:${POSTGRES_PASSWORD:-GuvenliPostgresSifresi123!}@db:5432/${POSTGRES_DB:-qr_university}
+      CAS_SERVER_URL: ${CAS_SERVER_URL:-https://jasig.firat.edu.tr/cas}
+      CAS_SERVICE_URL: ${CAS_SERVICE_URL:-https://qr.firat.edu.tr}
+      FIRAT_API_BASE_URL: ${FIRAT_API_BASE_URL:-https://qr.firat.edu.tr/api}
+      COOKIE_SECURE: ${COOKIE_SECURE:-True}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      UPSTREAM_MODE: ${UPSTREAM_MODE:-False}
+      BACKEND_CORS_ORIGINS: '["https://qr.firat.edu.tr","http://localhost:3000","http://127.0.0.1:3000","http://localhost:8001","http://127.0.0.1:8001"]'
     depends_on:
       db:
         condition: service_healthy
@@ -56,14 +62,13 @@ services:
       args:
         NEXT_PUBLIC_API_URL: /api/v1
         INTERNAL_BACKEND_URL: http://backend:8000
-    container_name: qr_automation_frontend
+    container_name: qr_university_frontend
     restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: 3000
       INTERNAL_BACKEND_URL: http://backend:8000
     ports:
-      # Nginx proxy_pass http://127.0.0.1:8001; ile tam uyumlu
       - "127.0.0.1:${APP_PORT:-8001}:3000"
     depends_on:
       - backend
@@ -72,9 +77,9 @@ services:
 
 volumes:
   postgres_data:
-    name: qr_automation_postgres_data
+    name: qr_university_postgres_data
 
 networks:
   qr_internal_network:
-    name: qr_internal_network
+    name: qr_university_network
     driver: bridge

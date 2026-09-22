@@ -1,115 +1,102 @@
-export interface RequestTemplate {
+export type UserRole = "student" | "instructor" | "admin";
+
+export interface User {
   id: string;
+  university_student_id?: string;
+  cas_subject: string;
+  email: string;
+  full_name: string;
+  role: UserRole;
+}
+
+export interface EnrolledCourse {
+  course_id: string;
+  course_code: string;
   name: string;
-  description?: string | null;
-  method: string;
-  url: string;
-  headers: Record<string, any>;
-  body_type: string;
-  body?: string | null;
-  query_params: Record<string, any>;
-  timeout_seconds: number;
-  is_active: boolean;
-  group_name: string;
-  order_index: number;
-  created_at: string;
-  updated_at: string;
 }
 
-export interface TemplateCreateInput {
+export interface UserMeResponse {
+  success: boolean;
+  user: User;
+  enrolled_courses: EnrolledCourse[];
+}
+
+export interface Course {
+  id: string;
+  course_code: string;
   name: string;
-  description?: string;
-  method: string;
-  url: string;
-  headers: Record<string, any>;
-  body_type: string;
-  body?: string;
-  query_params: Record<string, any>;
-  timeout_seconds: number;
-  is_active: boolean;
-  group_name: string;
-  order_index: number;
+  academic_semester: string;
+  instructor_name?: string;
 }
 
-export interface RequestLog {
+export interface CourseSession {
   id: string;
-  batch_run_id: string;
-  template_id?: string | null;
-  template_name: string;
-  request_url: string;
-  request_method: string;
-  request_headers: Record<string, any>;
-  request_body?: string | null;
-  response_status_code?: number | null;
-  response_headers?: Record<string, any> | null;
-  response_body?: string | null;
-  response_time_ms: number;
-  is_success: boolean;
-  error_message?: string | null;
-  created_at: string;
+  course_id: string;
+  course_code?: string;
+  course_name?: string;
+  started_at: string;
+  expires_at: string;
+  status: "active" | "closed" | "expired";
 }
 
-export interface BatchRun {
+export interface RotatingQrData {
+  success: boolean;
+  session_id: string;
+  qr_token: string;
+  raw_data: {
+    session_id: string;
+    nonce: string;
+    expires_at: number;
+    signature: string;
+  };
+  seconds_remaining: number;
+}
+
+export interface AttendanceVerifiedRecord {
   id: string;
-  input_value: string;
-  input_type: string;
-  execution_mode: "concurrent" | "sequential";
-  total_requests: number;
-  successful_requests: number;
-  failed_requests: number;
-  total_duration_ms: number;
-  status: "running" | "completed" | "partial_failure" | "failed";
-  created_at: string;
-  logs?: RequestLog[];
+  course_code: string;
+  course_name: string;
+  verified_at: string;
 }
 
-export interface BatchExecutionPayload {
-  input_value: string;
-  input_type?: string;
-  execution_mode: "concurrent" | "sequential";
-  template_ids?: string[];
-  custom_variables?: Record<string, string>;
-  delay_ms_between_requests?: number;
+export interface VerifyAttendanceResponse {
+  success: boolean;
+  status: "VERIFIED" | "ALREADY_VERIFIED" | "REJECTED";
+  message: string;
+  record?: AttendanceVerifiedRecord;
 }
 
-export interface BatchExecutionResponse {
-  batch_run_id: string;
-  input_value: string;
-  execution_mode: string;
-  total_requests: number;
-  successful_requests: number;
-  failed_requests: number;
-  total_duration_ms: number;
+export interface AttendanceRecordItem {
+  id: string;
+  university_student_id?: string;
+  full_name: string;
+  verified_at: string;
+}
+
+export interface AttendanceShowResponse {
+  success: boolean;
+  session_id: string;
+  course_code: string;
+  total_count: number;
+  records: AttendanceRecordItem[];
+}
+
+export interface MyAttendanceRecord {
+  id: string;
+  course_code: string;
+  course_name: string;
+  verified_at: string;
   status: string;
-  results: RequestLog[];
 }
 
-export interface DashboardStats {
-  total_batch_runs: number;
-  total_requests_executed: number;
-  successful_requests: number;
-  failed_requests: number;
-  overall_success_rate_pct: number;
-  average_latency_ms: number;
-  total_templates: number;
-  active_templates: number;
-}
-
-export interface TemplatePreviewResponse {
-  url: string;
-  method: string;
-  headers: Record<string, any>;
-  body?: string | null;
-  query_params: Record<string, any>;
-}
-
-export interface AdminLoginResponse {
-  token: string;
-  token_type: string;
-  expires_in: number;
-}
-
-export interface AdminVerifyResponse {
-  valid: boolean;
-  is_admin: boolean;
-}
+// 8 Belirlenmiş Kullanıcı Durumu
+export type VerificationStatus =
+  | "IDLE"
+  | "SCANNING"
+  | "VERIFYING"
+  | "VERIFIED"
+  | "QR_EXPIRED"
+  | "NOT_ENROLLED"
+  | "DUPLICATE"
+  | "UNAUTHORIZED_DEVICE"
+  | "SERVER_ERROR";
