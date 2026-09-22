@@ -1,179 +1,307 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import {
-  GraduationCap,
-  ShieldCheck,
-  Lock,
-  QrCode,
-  Tv,
-  ArrowRight,
-  CheckCircle,
+  Camera,
+  Play,
+  Users,
+  CheckCircle2,
   AlertCircle,
-  UserCheck,
+  Clock,
+  RefreshCw,
+  Send,
+  ShieldCheck,
+  Smartphone,
+  ExternalLink,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { StudentProfile, StudentVerifyResult, BatchDispatchResponse } from "@/lib/types";
+import { QrScannerModal } from "@/components/QrScannerModal";
 
-export default function HomePage() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
+export default function BatchRunnerPage() {
+  const [qrToken, setQrToken] = useState<string>("");
+  const [profiles, setProfiles] = useState<StudentProfile[]>([]);
+  const [selectedGroup, setSelectedGroup] = useState<string>("tubitak_ekip");
+  const [autoSendOnScan, setAutoSendOnScan] = useState<boolean>(true);
+  const [isScannerOpen, setIsScannerOpen] = useState<boolean>(false);
+
+  const [running, setRunning] = useState<boolean>(false);
+  const [lastResult, setLastResult] = useState<BatchDispatchResponse | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleQuickTestLogin = async (role: "student" | "instructor") => {
-    setLoading(true);
-    setErrorMsg(null);
+  // Aktif öğrenci profillerini yükle
+  const loadProfiles = useCallback(async () => {
     try {
-      const ticket =
-        role === "instructor"
-          ? "ST-TEST-INSTRUCTOR-1001"
-          : "ST-TEST-STUDENT-210101001";
-      await api.loginWithCasTicket(ticket);
-      window.dispatchEvent(new Event("auth-changed"));
-      if (role === "instructor") {
-        router.push("/instructor");
-      } else {
-        router.push("/student");
-      }
+      const data = await api.getProfiles();
+      setProfiles(data);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProfiles();
+  }, [loadProfiles]);
+
+  const activeCount = profiles.filter(
+    (p) => p.is_active && (selectedGroup === "all" || p.group_tag === selectedGroup)
+  ).length;
+
+  // Toplu yoklama ateşleme fonksiyonu
+  const handleDispatch = async (tokenOverride?: string) => {
+    const tokenToUse = (tokenOverride || qrToken).trim();
+    if (!tokenToUse) {
+      setErrorMsg("Lütfen önce kamerayla QR kod okutun veya metin kutusuna girin.");
+      return;
+    }
+
+    setRunning(true);
+    setErrorMsg(null);
+
+    try {
+      const res = await api.dispatchBatch(tokenToUse, selectedGroup);
+      setLastResult(res);
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.detail || "Giriş işlemi başarısız oldu.");
+      setErrorMsg(err.response?.data?.detail || "Toplu yoklama gönderimi sırasında sunucu hatası oluştu.");
     } finally {
-      setLoading(false);
+      setRunning(false);
     }
   };
 
-  const handleOfficialCasRedirect = () => {
-    // Fırat CAS sunucusuna yönlendir
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-    window.location.href = `${apiUrl}/auth/cas/start`;
+  // Kameradan QR okununca
+  const handleScanSuccess = (scannedText: string) => {
+    setQrToken(scannedText);
+    setIsScannerOpen(false);
+    if (autoSendOnScan) {
+      void handleDispatch(scannedText);
+    }
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900">
-      <div className="max-w-3xl w-full text-center space-y-8">
-        {/* Logo and Hero Header */}
-        <div className="space-y-4">
-          <div className="inline-flex p-4 rounded-3xl bg-gradient-to-tr from-rose-600 via-rose-700 to-indigo-700 text-white shadow-xl shadow-rose-600/20">
-            <GraduationCap className="w-12 h-12" />
-          </div>
-          <h1 className="text-3xl sm:text-5xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">
-            Fırat Üniversitesi
-            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-rose-600 to-indigo-600 mt-1">
-              Yetkili Yoklama Portalı
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      {/* Hero Header */}
+      <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+              Dekanlık & TÜBİTAK Çoklu Yoklama Otomasyonu
+            </h1>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 font-semibold border border-rose-200 dark:border-rose-900">
+              Otomasyon Motoru
             </span>
-          </h1>
-          <p className="max-w-xl mx-auto text-sm sm:text-base text-zinc-600 dark:text-zinc-400 leading-relaxed">
-            Ders içi güvenli, anlık ve dinamik QR tabanlı üniversite yoklama sistemi.
-            Öğretim görevlileri oturum açar, öğrenciler kendi doğrulanmış CAS hesaplarıyla yoklamalarını verir.
+          </div>
+          <p className="text-xs text-zinc-500 mt-1">
+            Sınıfta tahtadaki QR kodu tek bir cihazdan okutun; sunucu tüm ekip üyeleri adına resmi CAS oturumlarını açıp yoklamayı tek hamlede göndersin.
           </p>
         </div>
 
-        {errorMsg && (
-          <div className="max-w-md mx-auto p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2 text-left">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-        )}
+        <Link
+          href="/profiles"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300 transition-colors"
+        >
+          <Users className="w-4 h-4 text-rose-600" />
+          <span>Öğrenci Profillerini Yönet ({profiles.length})</span>
+          <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+        </Link>
+      </div>
 
-        {/* Action Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto text-left">
-          {/* Student Card */}
-          <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between space-y-4">
-            <div className="space-y-2">
-              <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold">
-                <QrCode className="w-5 h-5" />
-              </div>
-              <h3 className="font-bold text-lg text-zinc-900 dark:text-zinc-100">
-                Öğrenci Girişi
-              </h3>
-              <p className="text-xs text-zinc-500 leading-relaxed">
-                Kendi hesabınızla giriş yapıp sınıftaki tahtada bulunan QR kodu telefonunuzun kamerasıyla tarayın.
-              </p>
+      {errorMsg && (
+        <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
+      {/* QR Input & Controls Card */}
+      <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-5">
+        <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3">
+          <div className="flex items-center gap-2">
+            <Camera className="w-5 h-5 text-rose-600" />
+            <h2 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
+              QR Kod Okutma & Gönderim Kontrolleri
+            </h2>
+          </div>
+          <span className="text-xs font-mono text-emerald-600 font-semibold">
+            {activeCount} öğrenci hazır
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+          {/* QR Token Input */}
+          <div className="md:col-span-8 space-y-2">
+            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+              Okunan QR Değeri (qr_token)
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={qrToken}
+                onChange={(e) => setQrToken(e.target.value)}
+                placeholder="Kamerayla okutun veya QR metnini buraya yapıştırın..."
+                className="flex-1 px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 font-mono text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setIsScannerOpen(true)}
+                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs flex items-center gap-2 shadow-sm transition-colors shrink-0"
+              >
+                <Camera className="w-4 h-4" />
+                <span>Kamera ile Tara</span>
+              </button>
             </div>
-            <button
-              onClick={() => handleQuickTestLogin("student")}
-              disabled={loading}
-              className="w-full py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
-            >
-              <span>Öğrenci Olarak Devam Et</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
           </div>
 
-          {/* Instructor Card */}
-          <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between space-y-4">
-            <div className="space-y-2">
-              <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
-                <Tv className="w-5 h-5" />
-              </div>
-              <h3 className="font-bold text-lg text-zinc-900 dark:text-zinc-100">
-                Öğretim Görevlisi
-              </h3>
-              <p className="text-xs text-zinc-500 leading-relaxed">
-                Ders yoklaması başlatın, projeksiyon modunda 30 saniyede bir dönen dinamik QR yansıtın ve canlı izleyin.
-              </p>
-            </div>
-            <button
-              onClick={() => handleQuickTestLogin("instructor")}
-              disabled={loading}
-              className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+          {/* Group Selector */}
+          <div className="md:col-span-4 space-y-2">
+            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+              Hedef Öğrenci Grubu
+            </label>
+            <select
+              value={selectedGroup}
+              onChange={(e) => setSelectedGroup(e.target.value)}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
             >
-              <span>Hoca Paneline Gir</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
+              <option value="tubitak_ekip">TÜBİTAK Ekibi (tubitak_ekip)</option>
+              <option value="all">Tüm Aktif Öğrenciler</option>
+            </select>
           </div>
         </div>
 
-        {/* Official CAS Login Button */}
-        <div className="pt-2">
+        {/* Action Bar */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+          <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-zinc-600 dark:text-zinc-400">
+            <input
+              type="checkbox"
+              checked={autoSendOnScan}
+              onChange={(e) => setAutoSendOnScan(e.target.checked)}
+              className="rounded text-rose-600 focus:ring-rose-500 w-4 h-4"
+            />
+            <span>Kamera QR&apos;ı okuduğu anda otomatik tüm ekibe gönder</span>
+          </label>
+
           <button
-            onClick={handleOfficialCasRedirect}
-            className="inline-flex items-center gap-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 underline underline-offset-4"
+            type="button"
+            onClick={() => void handleDispatch()}
+            disabled={running || !qrToken.trim() || activeCount === 0}
+            className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-rose-600 to-indigo-600 hover:from-rose-700 hover:to-indigo-700 text-white font-bold text-sm shadow-md shadow-rose-600/20 flex items-center justify-center gap-2.5 transition-all transform active:scale-95 disabled:opacity-50"
           >
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>Fırat Üniversitesi Resmi CAS Sunucusu Üzerinden Giriş Yap</span>
+            {running ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+            <span>
+              {running
+                ? "Yoklamalar Eşzamanlı Gönderiliyor..."
+                : `${activeCount} Öğrenci İçin Tek Hamlede Yoklama Gönder`}
+            </span>
           </button>
         </div>
+      </div>
 
-        {/* Security & Feature Badges */}
-        <div className="pt-6 border-t border-zinc-200 dark:border-zinc-800 grid grid-cols-1 sm:grid-cols-3 gap-3 text-left">
-          <div className="p-3 rounded-xl bg-zinc-100/60 dark:bg-zinc-900/60 flex items-start gap-2.5">
-            <Lock className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+      {/* Results Section */}
+      {lastResult && (
+        <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-3">
             <div>
-              <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-200">
-                httpOnly Çerez Koruması
-              </h4>
-              <p className="text-[11px] text-zinc-500">
-                Tokenlar JavaScript veya tarayıcı belleğine asla sızdırılmaz.
+              <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                <span>Gönderim Sonuçları</span>
+                <span className="text-xs px-2 py-0.5 rounded-full font-mono font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+                  Toplam: {lastResult.total_count}
+                </span>
+              </h3>
+              <p className="text-xs text-zinc-500 mt-0.5">
+                Tüm öğrencilerin bağımsız CAS token ve telefon UUID bilgileriyle Fırat API yanıtları.
               </p>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs font-mono font-bold">
+              <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                ✓ {lastResult.success_count} Başarılı
+              </span>
+              {lastResult.failed_count > 0 && (
+                <span className="px-2.5 py-1 rounded-lg bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                  ✕ {lastResult.failed_count} Başarısız
+                </span>
+              )}
             </div>
           </div>
 
-          <div className="p-3 rounded-xl bg-zinc-100/60 dark:bg-zinc-900/60 flex items-start gap-2.5">
-            <QrCode className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-            <div>
-              <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-200">
-                30s Dönen Dinamik QR
-              </h4>
-              <p className="text-[11px] text-zinc-500">
-                Ekran görüntüsü paylaşımı ile dışarıdan yoklama alınması engellenir.
-              </p>
-            </div>
-          </div>
-
-          <div className="p-3 rounded-xl bg-zinc-100/60 dark:bg-zinc-900/60 flex items-start gap-2.5">
-            <UserCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-            <div>
-              <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-200">
-                Yarış Koşulu Önleme
-              </h4>
-              <p className="text-[11px] text-zinc-500">
-                100+ eşzamanlı istekte dahi mükerrer yoklama kesinlikle oluşmaz.
-              </p>
-            </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-zinc-50 dark:bg-zinc-800 text-zinc-500 uppercase tracking-wider font-semibold">
+                <tr>
+                  <th className="py-2.5 px-3">#</th>
+                  <th className="py-2.5 px-3">Öğrenci No</th>
+                  <th className="py-2.5 px-3">Adı Soyadı</th>
+                  <th className="py-2.5 px-3">HTTP Kodu</th>
+                  <th className="py-2.5 px-3">Süre</th>
+                  <th className="py-2.5 px-3">Fırat API Yanıt Mesajı</th>
+                  <th className="py-2.5 px-3">Durum</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800 font-mono">
+                {lastResult.results.map((res, idx) => (
+                  <tr key={res.profile_id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
+                    <td className="py-3 px-3 text-zinc-400">{idx + 1}</td>
+                    <td className="py-3 px-3 font-bold text-zinc-900 dark:text-zinc-100">
+                      {res.student_no}
+                    </td>
+                    <td className="py-3 px-3 font-sans font-medium text-zinc-800 dark:text-zinc-200">
+                      {res.full_name}
+                    </td>
+                    <td className="py-3 px-3">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                          res.status_code === 200 || res.status_code === 201
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                            : res.status_code === 409
+                            ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300"
+                            : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
+                        }`}
+                      >
+                        {res.status_code}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-zinc-500 text-[11px]">
+                      {res.response_time_ms} ms
+                    </td>
+                    <td className="py-3 px-3 font-sans text-zinc-700 dark:text-zinc-300 max-w-[280px] truncate" title={res.message}>
+                      {res.message}
+                    </td>
+                    <td className="py-3 px-3">
+                      {res.success ? (
+                        <span className="inline-flex items-center gap-1 text-emerald-600 font-sans font-semibold">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Onaylandı
+                        </span>
+                      ) : res.status_code === 409 ? (
+                        <span className="inline-flex items-center gap-1 text-indigo-600 font-sans font-semibold">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Zaten Alınmış
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-rose-600 font-sans font-semibold">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          Başarısız
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Advanced QR Scanner Modal */}
+      <QrScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScanSuccess={handleScanSuccess}
+      />
     </div>
   );
 }

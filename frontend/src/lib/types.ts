@@ -1,102 +1,52 @@
-export type UserRole = "student" | "instructor" | "admin";
-
-export interface User {
+export interface StudentProfile {
   id: string;
-  university_student_id?: string;
-  cas_subject: string;
-  email: string;
+  student_no: string;
   full_name: string;
-  role: UserRole;
+  device_uuid: string;
+  group_tag: string;
+  is_active: boolean;
+  has_valid_token: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface EnrolledCourse {
-  course_id: string;
-  course_code: string;
-  name: string;
+export interface StudentProfileCreateInput {
+  student_no: string;
+  password: string;
+  device_uuid: string;
+  full_name: string;
+  group_tag?: string;
+  is_active?: boolean;
 }
 
-export interface UserMeResponse {
+export interface StudentVerifyResult {
+  profile_id: string;
+  student_no: string;
+  full_name: string;
+  device_uuid: string;
+  status_code: number;
   success: boolean;
-  user: User;
-  enrolled_courses: EnrolledCourse[];
-}
-
-export interface Course {
-  id: string;
-  course_code: string;
-  name: string;
-  academic_semester: string;
-  instructor_name?: string;
-}
-
-export interface CourseSession {
-  id: string;
-  course_id: string;
-  course_code?: string;
-  course_name?: string;
-  started_at: string;
-  expires_at: string;
-  status: "active" | "closed" | "expired";
-}
-
-export interface RotatingQrData {
-  success: boolean;
-  session_id: string;
-  qr_token: string;
-  raw_data: {
-    session_id: string;
-    nonce: string;
-    expires_at: number;
-    signature: string;
-  };
-  seconds_remaining: number;
-}
-
-export interface AttendanceVerifiedRecord {
-  id: string;
-  course_code: string;
-  course_name: string;
-  verified_at: string;
-}
-
-export interface VerifyAttendanceResponse {
-  success: boolean;
-  status: "VERIFIED" | "ALREADY_VERIFIED" | "REJECTED";
   message: string;
-  record?: AttendanceVerifiedRecord;
+  response_data?: any;
+  response_time_ms: number;
 }
 
-export interface AttendanceRecordItem {
-  id: string;
-  university_student_id?: string;
-  full_name: string;
-  verified_at: string;
-}
-
-export interface AttendanceShowResponse {
+export interface BatchDispatchResponse {
   success: boolean;
-  session_id: string;
-  course_code: string;
+  batch_job_id: string;
   total_count: number;
-  records: AttendanceRecordItem[];
+  success_count: number;
+  failed_count: number;
+  results: StudentVerifyResult[];
 }
 
-export interface MyAttendanceRecord {
+export interface BatchHistoryItem {
   id: string;
-  course_code: string;
-  course_name: string;
-  verified_at: string;
-  status: string;
+  qr_token_preview: string;
+  group_tag: string;
+  total_count: number;
+  success_count: number;
+  failed_count: number;
+  created_at: string;
+  results?: StudentVerifyResult[];
 }
-
-// 8 Belirlenmiş Kullanıcı Durumu
-export type VerificationStatus =
-  | "IDLE"
-  | "SCANNING"
-  | "VERIFYING"
-  | "VERIFIED"
-  | "QR_EXPIRED"
-  | "NOT_ENROLLED"
-  | "DUPLICATE"
-  | "UNAUTHORIZED_DEVICE"
-  | "SERVER_ERROR";

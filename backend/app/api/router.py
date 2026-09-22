@@ -1,8 +1,10 @@
 from fastapi import APIRouter
-from app.api.endpoints import auth, attendance, courses, device, user
+from app.api.endpoints import auth, attendance, courses, device, user, profiles, batch_runner
 
 api_router = APIRouter()
 
+api_router.include_router(batch_runner.router)
+api_router.include_router(profiles.router)
 api_router.include_router(auth.router)
 api_router.include_router(attendance.router)
 api_router.include_router(courses.router)

@@ -1,12 +1,9 @@
 import axios from "axios";
 import {
-  UserMeResponse,
-  Course,
-  CourseSession,
-  RotatingQrData,
-  VerifyAttendanceResponse,
-  AttendanceShowResponse,
-  MyAttendanceRecord,
+  StudentProfile,
+  StudentProfileCreateInput,
+  BatchDispatchResponse,
+  BatchHistoryItem,
 } from "./types";
 
 const API_BASE_URL =
@@ -19,73 +16,55 @@ export const apiClient = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  withCredentials: true, // httpOnly Secure çerezlerin taşınması için zorunlu
-  timeout: 30000,
+  withCredentials: true,
+  timeout: 45000,
 });
 
 export const api = {
-  // Kimlik Doğrulama
-  getMe: async (): Promise<UserMeResponse> => {
-    const res = await apiClient.get<UserMeResponse>("/auth/me");
-    return res.data;
-  },
-
-  loginWithCasTicket: async (ticket: string) => {
-    const res = await apiClient.get(`/auth/cas/callback`, {
-      params: { ticket },
-    });
-    return res.data;
-  },
-
-  logout: async () => {
-    const res = await apiClient.post("/auth/logout");
-    return res.data;
-  },
-
-  // Dersler
-  getCourses: async (): Promise<Course[]> => {
-    const res = await apiClient.get<Course[]>("/courses");
-    return res.data;
-  },
-
-  // Yoklama İşlemleri (Öğretim Görevlisi)
-  createSession: async (courseId: string, durationMinutes: number): Promise<CourseSession> => {
-    const res = await apiClient.post<CourseSession>("/attendance/sessions", {
-      course_id: courseId,
-      duration_minutes: durationMinutes,
-    });
-    return res.data;
-  },
-
-  getRotatingQr: async (sessionId: string): Promise<RotatingQrData> => {
-    const res = await apiClient.get<RotatingQrData>(`/attendance/sessions/${sessionId}/qr`);
-    return res.data;
-  },
-
-  closeSession: async (sessionId: string) => {
-    const res = await apiClient.post(`/attendance/sessions/${sessionId}/close`);
-    return res.data;
-  },
-
-  getSessionRecords: async (sessionId: string): Promise<AttendanceShowResponse> => {
-    const res = await apiClient.get<AttendanceShowResponse>(`/attendance/sessions/${sessionId}/records`);
-    return res.data;
-  },
-
-  // Yoklama Doğrulama (Öğrenci)
-  verifyAttendance: async (
+  // Toplu Yoklama Gönderimi
+  dispatchBatch: async (
     qrToken: string,
-    idempotencyKey?: string
-  ): Promise<VerifyAttendanceResponse> => {
-    const res = await apiClient.post<VerifyAttendanceResponse>("/attendance/verify", {
+    groupTag?: string
+  ): Promise<BatchDispatchResponse> => {
+    const res = await apiClient.post<BatchDispatchResponse>("/batch/dispatch", {
       qr_token: qrToken,
-      idempotency_key: idempotencyKey,
+      group_tag: groupTag || undefined,
     });
     return res.data;
   },
 
-  getMyRecords: async (): Promise<{ success: boolean; records: MyAttendanceRecord[] }> => {
-    const res = await apiClient.get<{ success: boolean; records: MyAttendanceRecord[] }>("/attendance/my-records");
+  getBatchHistory: async (): Promise<BatchHistoryItem[]> => {
+    const res = await apiClient.get<BatchHistoryItem[]>("/batch/history");
+    return res.data;
+  },
+
+  // Öğrenci Profil Yönetimi
+  getProfiles: async (groupTag?: string): Promise<StudentProfile[]> => {
+    const res = await apiClient.get<StudentProfile[]>("/profiles", {
+      params: groupTag ? { group_tag: groupTag } : undefined,
+    });
+    return res.data;
+  },
+
+  createProfile: async (data: StudentProfileCreateInput): Promise<StudentProfile> => {
+    const res = await apiClient.post<StudentProfile>("/profiles", data);
+    return res.data;
+  },
+
+  updateProfile: async (
+    id: string,
+    data: Partial<StudentProfileCreateInput>
+  ): Promise<StudentProfile> => {
+    const res = await apiClient.put<StudentProfile>(`/profiles/${id}`, data);
+    return res.data;
+  },
+
+  deleteProfile: async (id: string): Promise<void> => {
+    await apiClient.delete(`/profiles/${id}`);
+  },
+
+  testProfileAuth: async (id: string): Promise<{ success: boolean; message: string; student_no: string }> => {
+    const res = await apiClient.post(`/profiles/${id}/test-auth`);
     return res.data;
   },
 };
