@@ -14,10 +14,12 @@ import {
   ShieldCheck,
   Smartphone,
   ExternalLink,
+  ImageUp,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { StudentProfile, StudentVerifyResult, BatchDispatchResponse } from "@/lib/types";
 import { QrScannerModal } from "@/components/QrScannerModal";
+import { decodeQrFromBlob } from "@/lib/qrDecode";
 
 export default function BatchRunnerPage() {
   const [qrToken, setQrToken] = useState<string>("");
@@ -29,6 +31,8 @@ export default function BatchRunnerPage() {
   const [running, setRunning] = useState<boolean>(false);
   const [lastResult, setLastResult] = useState<BatchDispatchResponse | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [photoDecoding, setPhotoDecoding] = useState<boolean>(false);
+  const directFileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Aktif öğrenci profillerini yükle
   const loadProfiles = useCallback(async () => {
@@ -75,6 +79,30 @@ export default function BatchRunnerPage() {
     setIsScannerOpen(false);
     if (autoSendOnScan) {
       void handleDispatch(scannedText);
+    }
+  };
+
+  // Doğrudan fotoğraftan çözme
+  const handleDirectFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setPhotoDecoding(true);
+    setErrorMsg(null);
+    try {
+      const decoded = await decodeQrFromBlob(file);
+      if (decoded) {
+        setQrToken(decoded);
+        if (autoSendOnScan) {
+          void handleDispatch(decoded);
+        }
+      } else {
+        setErrorMsg("Seçilen fotoğrafta QR kod bulunamadı. Tahtayı daha yakından ve parlamasız çekmeyi deneyin.");
+      }
+    } catch {
+      setErrorMsg("Fotoğraf işlenirken hata oluştu.");
+    } finally {
+      setPhotoDecoding(false);
     }
   };
 
@@ -133,13 +161,13 @@ export default function BatchRunnerPage() {
             <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
               Okunan QR Değeri (qr_token)
             </label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap sm:flex-nowrap gap-2">
               <input
                 type="text"
                 value={qrToken}
                 onChange={(e) => setQrToken(e.target.value)}
                 placeholder="Kamerayla okutun veya QR metnini buraya yapıştırın..."
-                className="flex-1 px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 font-mono text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                className="flex-1 min-w-[200px] px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 font-mono text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
               />
               <button
                 type="button"
@@ -149,6 +177,23 @@ export default function BatchRunnerPage() {
                 <Camera className="w-4 h-4" />
                 <span>Kamera ile Tara</span>
               </button>
+              <button
+                type="button"
+                onClick={() => directFileInputRef.current?.click()}
+                disabled={photoDecoding}
+                className="px-4 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 font-semibold text-xs flex items-center gap-2 transition-colors shrink-0 disabled:opacity-50"
+                title="Kamera izni verilemeyen veya HTTP ağlarda telefon kamerası / galeri ile QR seçin"
+              >
+                <ImageUp className="w-4 h-4 text-rose-500" />
+                <span>{photoDecoding ? "Taranıyor..." : "Fotoğraf / Galeri"}</span>
+              </button>
+              <input
+                ref={directFileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleDirectFile}
+              />
             </div>
           </div>
 

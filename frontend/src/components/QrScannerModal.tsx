@@ -168,6 +168,10 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
 
     const start = async () => {
       try {
+        if (!navigator?.mediaDevices?.getUserMedia) {
+          throw new Error("HTTP_MEDIA_BLOCKED");
+        }
+
         let stream: MediaStream;
         try {
           stream = await navigator.mediaDevices.getUserMedia({
@@ -247,11 +251,14 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({
           }
         };
         rafRef.current = requestAnimationFrame(loop);
-      } catch (err) {
-        console.error("Camera access error:", err);
+      } catch (err: any) {
         setIsStarting(false);
-        setErrorMsg("Kamera erişimi başlatılamadı. İzin verin veya aşağıdan fotoğraf seçin.");
-        setStatusText("Kamerasız da fotoğraftan okuyabilirsiniz");
+        if (err?.message === "HTTP_MEDIA_BLOCKED" || !navigator?.mediaDevices) {
+          setErrorMsg("Canlı kamera doğrudan erişimi için HTTPS gereklidir. HTTP bağlantısında lütfen aşağıdaki 'Fotoğraf / Galeri' butonunu kullanarak fotoğraf çekin.");
+        } else {
+          setErrorMsg("Kamera erişimi başlatılamadı. İzin verin veya aşağıdaki butonla fotoğraf seçin.");
+        }
+        setStatusText("Fotoğraftan veya galeriden de okuyabilirsiniz");
       }
     };
 
