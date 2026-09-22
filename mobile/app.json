@@ -4,8 +4,10 @@
     "slug": "firat-yoklama",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -13,7 +15,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "tr.edu.firat.yoklama",
       "infoPlist": {
-        "NSCameraUsageDescription": "Ders tahtasındaki yoklama QR kodunu taramak için kamera erişimi gereklidir."
+        "NSCameraUsageDescription": "Ders tahtasındaki yoklama QR kodunu taramak için kamera erişimi gereklidir.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -23,7 +26,9 @@
       "package": "tr.edu.firat.yoklama",
       "permissions": [
         "CAMERA",
-        "INTERNET"
+        "INTERNET",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
@@ -33,6 +38,12 @@
           "cameraPermission": "Ders tahtasındaki yoklama QR kodunu taramak için kamera erişimi gereklidir."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "74f0eb79-37b6-46c8-9ccc-90f33af341c8"
+      }
+    },
+    "owner": "furkanguven"
   }
 }
